@@ -16,6 +16,30 @@ function validarCampos({ titulo, autor, status }) {
   return null;
 }
 
+function erroDeRequisicao(status, mensagem) {
+  const erro = new Error(mensagem);
+  erro.status = status;
+  return erro;
+}
+
+/**
+ * Busca o livro garantindo que ele pertence ao usuário logado.
+ * Lança 404 se não existe e 403 se é de outro usuário — a regra de posse
+ * fica em um lugar só, para não divergir entre os endpoints que a usam.
+ */
+async function buscarLivroDoUsuario(id, usuarioId, acao) {
+  const livro = await livroModel.buscarPorId(id);
+
+  if (!livro) {
+    throw erroDeRequisicao(404, 'Livro não encontrado.');
+  }
+  if (livro.usuario_id !== usuarioId) {
+    throw erroDeRequisicao(403, `Você não tem permissão para ${acao} este livro.`);
+  }
+
+  return livro;
+}
+
 async function listar(req, res, next) {
   try {
     const livros = await livroModel.listarPorUsuario(req.usuario.id);
@@ -57,13 +81,7 @@ async function atualizar(req, res, next) {
     const erro = validarCampos({ titulo, autor, status });
     if (erro) return res.status(400).json({ erro });
 
-    const livroAtual = await livroModel.buscarPorId(id);
-    if (!livroAtual) {
-      return res.status(404).json({ erro: 'Livro não encontrado.' });
-    }
-    if (livroAtual.usuario_id !== req.usuario.id) {
-      return res.status(403).json({ erro: 'Você não tem permissão para alterar este livro.' });
-    }
+    const livroAtual = await buscarLivroDoUsuario(id, req.usuario.id, 'alterar');
 
     const livroAtualizado = await livroModel.atualizar(id, {
       titulo: titulo.trim(),
@@ -85,13 +103,7 @@ async function remover(req, res, next) {
   try {
     const { id } = req.params;
 
-    const livroAtual = await livroModel.buscarPorId(id);
-    if (!livroAtual) {
-      return res.status(404).json({ erro: 'Livro não encontrado.' });
-    }
-    if (livroAtual.usuario_id !== req.usuario.id) {
-      return res.status(403).json({ erro: 'Você não tem permissão para remover este livro.' });
-    }
+    await buscarLivroDoUsuario(id, req.usuario.id, 'remover');
 
     await livroModel.remover(id);
     return res.status(204).send();
