@@ -63,8 +63,13 @@ async function request(path, { method = 'GET', body } = {}) {
   let corpoDaResposta = null;
   try {
     corpoDaResposta = await resposta.json();
-  } catch (_) {
-    // resposta sem corpo JSON (ex.: erro genérico do servidor)
+  } catch (erroDeLeitura) {
+    // O 204 já saiu acima, então corpo ilegível só é esperado em resposta de
+    // erro sem JSON. Em resposta de sucesso isso é bug do servidor: registre,
+    // senão fica indistinguível de um corpo legitimamente vazio.
+    if (resposta.ok) {
+      console.error(`Resposta ${resposta.status} de ${path} sem JSON válido:`, erroDeLeitura);
+    }
   }
 
   if (resposta.status === 403) {
