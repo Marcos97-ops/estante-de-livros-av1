@@ -13,6 +13,15 @@ const origensPermitidas = (process.env.CORS_ORIGIN || '')
   .map((origem) => origem.trim())
   .filter(Boolean);
 
+// Sem essa checagem o servidor sobe normalmente e bloqueia todas as requisições
+// do navegador em silêncio — o sintoma aparece longe da causa.
+if (origensPermitidas.length === 0) {
+  console.warn(
+    '[cors] CORS_ORIGIN não definida: nenhuma origem será aceita pelo navegador. ' +
+    'Defina CORS_ORIGIN no .env com a URL do frontend (ex.: http://localhost:5500).'
+  );
+}
+
 app.use(cors({ origin: origensPermitidas }));
 app.use(express.json());
 

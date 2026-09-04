@@ -17,17 +17,10 @@ const avisoExpirado = document.getElementById('aviso-expirado');
 const btnLogin    = document.getElementById('btn-login');
 const btnCadastro = document.getElementById('btn-cadastro');
 
-function mostrarErro(mensagem) {
-  erroMsg.textContent = mensagem;
-  erroMsg.classList.remove('hidden');
-}
-
-function esconderErro() {
-  erroMsg.classList.add('hidden');
-}
+const avisoDeErro = criarAvisoDeErro(erroMsg);
 
 function irPara(aba) {
-  esconderErro();
+  avisoDeErro.esconder();
   const ehLogin = aba === 'login';
   tabLogin.classList.toggle('active', ehLogin);
   tabCadastro.classList.toggle('active', !ehLogin);
@@ -52,7 +45,7 @@ function definirCarregando(botao, carregando, textoPadrao) {
 
 formLogin.addEventListener('submit', async (e) => {
   e.preventDefault();
-  esconderErro();
+  avisoDeErro.esconder();
 
   const email = document.getElementById('login-email').value.trim();
   const senha = document.getElementById('login-senha').value;
@@ -63,7 +56,7 @@ formLogin.addEventListener('submit', async (e) => {
     api.salvarSessao(token, usuario);
     window.location.href = 'index.html';
   } catch (err) {
-    mostrarErro(err.message);
+    avisoDeErro.mostrar(err.message);
   } finally {
     definirCarregando(btnLogin, false, 'Entrar');
   }
@@ -71,7 +64,7 @@ formLogin.addEventListener('submit', async (e) => {
 
 formCadastro.addEventListener('submit', async (e) => {
   e.preventDefault();
-  esconderErro();
+  avisoDeErro.esconder();
 
   const nome  = document.getElementById('cadastro-nome').value.trim();
   const email = document.getElementById('cadastro-email').value.trim();
@@ -83,7 +76,7 @@ formCadastro.addEventListener('submit', async (e) => {
     api.salvarSessao(token, usuario);
     window.location.href = 'index.html';
   } catch (err) {
-    mostrarErro(err.message);
+    avisoDeErro.mostrar(err.message);
   } finally {
     definirCarregando(btnCadastro, false, 'Criar conta');
   }

@@ -14,8 +14,8 @@ function getToken() {
 }
 
 function getUsuario() {
-  const raw = localStorage.getItem('usuario');
-  return raw ? JSON.parse(raw) : null;
+  const usuarioSerializado = localStorage.getItem('usuario');
+  return usuarioSerializado ? JSON.parse(usuarioSerializado) : null;
 }
 
 function salvarSessao(token, usuario) {
@@ -50,32 +50,43 @@ async function request(path, { method = 'GET', body } = {}) {
     throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.');
   }
 
+  if (resposta.status === 204) return null;
+
+  let corpoDaResposta = null;
+  try {
+    corpoDaResposta = await resposta.json();
+  } catch (erroDeLeitura) {
+    // O 204 já saiu acima, então corpo ilegível só é esperado em resposta de
+    // erro sem JSON. Em resposta de sucesso isso é bug do servidor: registre,
+    // senão fica indistinguível de um corpo legitimamente vazio.
+    if (resposta.ok) {
+      console.error(`Resposta ${resposta.status} de ${path} sem JSON válido:`, erroDeLeitura);
+    }
+  }
+
   if (resposta.status === 401) {
     limparSessao();
-    if (!window.location.pathname.endsWith('login.html')) {
-      window.location.href = 'login.html?expirado=1';
+
+    // Na tela de login, 401 significa credencial errada — não sessão expirada.
+    // Tratar os dois como a mesma coisa mostrava "Sessão expirada" para quem
+    // apenas digitou a senha errada.
+    if (window.location.pathname.endsWith('login.html')) {
+      throw new Error(corpoDaResposta?.erro || 'E-mail ou senha inválidos.');
     }
+
+    window.location.href = 'login.html?expirado=1';
     throw new Error('Sessão expirada. Faça login novamente.');
   }
 
-  if (resposta.status === 204) return null;
-
-  let dados = null;
-  try {
-    dados = await resposta.json();
-  } catch (_) {
-    // resposta sem corpo JSON (ex.: erro genérico do servidor)
-  }
-
   if (resposta.status === 403) {
-    throw new Error(dados?.erro || 'Você não tem permissão para realizar esta ação.');
+    throw new Error(corpoDaResposta?.erro || 'Você não tem permissão para realizar esta ação.');
   }
 
   if (!resposta.ok) {
-    throw new Error(dados?.erro || 'Ocorreu um erro inesperado.');
+    throw new Error(corpoDaResposta?.erro || 'Ocorreu um erro inesperado.');
   }
 
-  return dados;
+  return corpoDaResposta;
 }
 
 const api = {

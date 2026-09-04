@@ -4,6 +4,8 @@ Aplicação full-stack para gerenciar sua biblioteca pessoal. Projeto Final do c
 
 Cada usuário cria sua própria conta e vê apenas os livros que cadastrou. É possível organizar os livros por status — **Quero ler**, **Lendo** ou **Lido** —, categorizá-los e filtrar por status ou categoria.
 
+> 📋 Este repositório é a cópia do projeto dedicada à **revisão formal de qualidade de código**. O levantamento completo de code smells e métricas está em [`DIAGNOSTICO.md`](DIAGNOSTICO.md), e o que mudou a partir dele está resumido em [O que foi melhorado na refatoração](#-o-que-foi-melhorado-na-refatoração).
+
 ## 🔗 URLs de produção
 
 | | URL |
@@ -47,6 +49,7 @@ estante-de-livros/
     ├── css/style.css
     └── js/
         ├── api.js            # wrapper de fetch: injeta token, trata 401/403
+        ├── ui.js             # helpers de interface compartilhados entre as telas
         ├── auth.js           # lógica de login/cadastro
         └── app.js             # CRUD de livros via API
 ```
@@ -125,8 +128,8 @@ Content-Type: application/json
 
 ### 1. Clonar o repositório
 ```bash
-git clone https://github.com/Marcos97-ops/estante-de-livros.git
-cd estante-de-livros
+git clone https://github.com/Marcos97-ops/estante-de-livros-av1.git
+cd estante-de-livros-av1
 ```
 
 ### 2. Configurar o banco de dados
@@ -135,6 +138,12 @@ Crie um banco (local ou no Neon) e rode os scripts SQL na ordem:
 psql "<sua-connection-string>" -f backend/db/schema.sql
 psql "<sua-connection-string>" -f backend/db/seed.sql
 ```
+
+Para subir um Postgres local descartável com Docker:
+```bash
+docker run -d --name estante-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=estante -p 5432:5432 postgres:16-alpine
+```
+A connection string fica `postgresql://postgres:postgres@localhost:5432/estante`.
 
 ### 3. Backend
 ```bash
@@ -184,3 +193,39 @@ Depois do primeiro deploy, atualize `API_URL` em `frontend/js/api.js` com a URL 
 - Contador de livros por status, atualizado em tempo real
 - Tratamento de sessão expirada/inválida (401) e de permissão negada (403)
 - Layout responsivo (mobile e desktop)
+
+## 🧹 O que foi melhorado na refatoração
+
+O diagnóstico completo — com trechos de código, arquivo:linha e cálculo de complexidade ciclomática — está em [`DIAGNOSTICO.md`](DIAGNOSTICO.md). Esta seção resume o que foi corrigido a partir dele.
+
+**Nenhum comportamento visível para o usuário mudou.** A refatoração alterou como o código está organizado, não o que a aplicação faz.
+
+### Duplicação eliminada
+
+| Problema | Solução |
+|---|---|
+| A verificação de dono do livro (404 se não existe, 403 se é de outro usuário) estava escrita duas vezes, em `atualizar` e `remover` | Extraída para `buscarLivroDoUsuario()`. A regra de autorização mais sensível da aplicação passa a existir em um lugar só |
+| O tratamento do erro `23503` do Postgres (categoria inexistente) estava duplicado em `criar` e `atualizar` | Movido para o `errorHandler` central. Os controllers não conhecem mais códigos de erro do banco |
+| `renderizarLivros()` e `atualizarContadores()` eram sempre chamadas em par, em 4 lugares | Unificadas em `atualizarInterface()` |
+| `mostrarErro`/`esconderErro` existiam quase idênticas em `app.js` e `auth.js`, ambas no escopo global | Extraídas para `js/ui.js`, compartilhado pelas duas telas via `criarAvisoDeErro(elemento)` |
+
+### Funções que faziam coisas demais
+
+- **`adicionarLivro()`** acumulava seis responsabilidades em 34 linhas. Virou uma orquestração de três funções coesas: `lerFormularioDeLivro()`, `validarFormularioDeLivro()` e `limparFormularioDeLivro()`. A validação agora é pura — não toca no DOM — e segue o mesmo contrato da validação do backend (devolve a mensagem de erro ou `null`).
+- **`atualizar()`** no backend misturava validação, autorização, tradução de erro de banco e persistência. Com a extração de `buscarLivroDoUsuario()` e a centralização do erro de chave estrangeira, sobrou só a orquestração.
+
+### Tratamento de erro explícito
+
+| Antes | Depois |
+|---|---|
+| `console.error(err)` no `errorHandler`, sem nenhum contexto | Log estruturado em JSON com horário, método, rota, status e mensagem. Stack trace só em erro 5xx, já que 4xx é falha esperada do cliente. Além disso, 4xx sai por **stdout** e 5xx por **stderr**, para um 404 não disparar alerta junto com um 500 nos coletores de log |
+| Sem `CORS_ORIGIN`, o servidor subia normalmente e bloqueava **todas** as requisições do navegador em silêncio | Aviso explícito no boot dizendo o que configurar e onde |
+| Falha ao carregar categorias aparecia só no console — o usuário via os selects vazios sem explicação | O usuário é avisado na tela, deixando claro que ainda dá para cadastrar livros sem categoria |
+| `catch` vazio ao ler o corpo da resposta engolia qualquer falha de parsing | Passa a registrar quando a resposta é de **sucesso** e mesmo assim veio sem JSON válido — isso é bug do servidor, não corpo vazio esperado |
+| Quem digitava a senha errada via **"Sessão expirada. Faça login novamente."**, porque todo 401 era tratado como token vencido | Na tela de login, o 401 passa a exibir a mensagem real do backend (`E-mail ou senha inválidos.`). Bug encontrado durante o teste manual da refatoração |
+
+### Nomes que explicam a intenção
+
+`dados` → `corpoDaResposta` · `raw` → `usuarioSerializado` · `l` → `livro` · `sel` → `selectDeStatus` · `opt` → `opcao` · `cat` → `categoria` · `optForm`/`optFiltro` → `opcaoDoFormulario`/`opcaoDoFiltro` · `filtrados` → `livrosVisiveis` · `clone`/`article` → `cardClonado`/`cardDoLivro` · `validarCampos` → `validarDadosDoLivro`
+
+Também foi extraída a constante `STATUS_PADRAO`, no lugar da string `'quero-ler'` repetida no reset do formulário.

@@ -43,6 +43,8 @@ const STATUS_LABEL = {
   'quero-ler': '📖 Quero ler',
 };
 
+const STATUS_PADRAO = 'quero-ler';
+
 // ── Sessão ───────────────────────────────────────────────────
 function iniciarCabecalhoUsuario() {
   const usuario = api.getUsuario();
@@ -55,33 +57,31 @@ btnSair.addEventListener('click', () => {
 });
 
 // ── Mensagens de erro ────────────────────────────────────────
-function mostrarErro(mensagem) {
-  errorMsg.textContent = `⚠️ ${mensagem}`;
-  errorMsg.classList.remove('hidden');
-}
-
-function esconderErro() {
-  errorMsg.classList.add('hidden');
-}
+const avisoDeErro = criarAvisoDeErro(errorMsg);
 
 // ── Carregar categorias (form + filtro) ───────────────────────
 async function carregarCategorias() {
   try {
     categorias = await api.get('/api/categorias');
 
-    categorias.forEach(cat => {
-      const optForm = document.createElement('option');
-      optForm.value = cat.id;
-      optForm.textContent = cat.nome;
-      inputCategoria.appendChild(optForm);
+    categorias.forEach(categoria => {
+      const opcaoDoFormulario = document.createElement('option');
+      opcaoDoFormulario.value = categoria.id;
+      opcaoDoFormulario.textContent = categoria.nome;
+      inputCategoria.appendChild(opcaoDoFormulario);
 
-      const optFiltro = document.createElement('option');
-      optFiltro.value = cat.id;
-      optFiltro.textContent = cat.nome;
-      filterCategoria.appendChild(optFiltro);
+      const opcaoDoFiltro = document.createElement('option');
+      opcaoDoFiltro.value = categoria.id;
+      opcaoDoFiltro.textContent = categoria.nome;
+      filterCategoria.appendChild(opcaoDoFiltro);
     });
   } catch (err) {
-    console.error('Falha ao carregar categorias:', err.message);
+    // Sem esse aviso, os selects apenas ficariam vazios e o usuário não teria
+    // como saber que faltou algo. Cadastrar sem categoria continua funcionando.
+    console.error('Falha ao carregar categorias:', err);
+    avisoDeErro.mostrar(
+      'Não foi possível carregar as categorias. Você ainda pode cadastrar livros sem categoria.'
+    );
   }
 }
 
@@ -89,44 +89,59 @@ async function carregarCategorias() {
 async function carregarLivros() {
   try {
     livros = await api.get('/api/livros');
-    renderizarLivros();
-    atualizarContadores();
+    atualizarInterface();
   } catch (err) {
-    mostrarErro(err.message);
+    avisoDeErro.mostrar(err.message);
   }
 }
 
 // ── Adicionar livro ──────────────────────────────────────────
-async function adicionarLivro() {
-  const titulo = inputTitulo.value.trim();
-  const autor  = inputAutor.value.trim();
-  const status = inputStatus.value;
-  const categoriaId = inputCategoria.value || null;
+function lerFormularioDeLivro() {
+  return {
+    titulo: inputTitulo.value.trim(),
+    autor: inputAutor.value.trim(),
+    status: inputStatus.value,
+    categoriaId: inputCategoria.value || null,
+  };
+}
 
-  // Validação: campos obrigatórios
+// Devolve a mensagem de erro, ou null se estiver tudo certo — mesmo contrato
+// da validação do backend, e sem tocar no DOM.
+function validarFormularioDeLivro({ titulo, autor }) {
   if (!titulo || !autor) {
-    mostrarErro('Preencha o título e o autor antes de adicionar.');
-    (titulo ? inputAutor : inputTitulo).focus();
+    return 'Preencha o título e o autor antes de adicionar.';
+  }
+  return null;
+}
+
+function limparFormularioDeLivro() {
+  inputTitulo.value = '';
+  inputAutor.value  = '';
+  inputStatus.value = STATUS_PADRAO;
+  inputCategoria.value = '';
+  inputTitulo.focus();
+}
+
+async function adicionarLivro() {
+  const dadosDoLivro = lerFormularioDeLivro();
+
+  const mensagemDeErro = validarFormularioDeLivro(dadosDoLivro);
+  if (mensagemDeErro) {
+    avisoDeErro.mostrar(mensagemDeErro);
+    (dadosDoLivro.titulo ? inputAutor : inputTitulo).focus();
     return;
   }
 
-  esconderErro();
+  avisoDeErro.esconder();
   btnAdicionar.disabled = true;
 
   try {
-    const novoLivro = await api.post('/api/livros', { titulo, autor, status, categoriaId });
-    livros.unshift(novoLivro);
-    renderizarLivros();
-    atualizarContadores();
-
-    // Limpar formulário
-    inputTitulo.value = '';
-    inputAutor.value  = '';
-    inputStatus.value = 'quero-ler';
-    inputCategoria.value = '';
-    inputTitulo.focus();
+    const livroCriado = await api.post('/api/livros', dadosDoLivro);
+    livros.unshift(livroCriado);
+    atualizarInterface();
+    limparFormularioDeLivro();
   } catch (err) {
-    mostrarErro(err.message);
+    avisoDeErro.mostrar(err.message);
   } finally {
     btnAdicionar.disabled = false;
   }
@@ -136,74 +151,72 @@ async function adicionarLivro() {
 async function removerLivro(id) {
   try {
     await api.delete(`/api/livros/${id}`);
-    livros = livros.filter(l => l.id !== id);
-    renderizarLivros();
-    atualizarContadores();
+    livros = livros.filter(livro => livro.id !== id);
+    atualizarInterface();
   } catch (err) {
-    mostrarErro(err.message);
+    avisoDeErro.mostrar(err.message);
   }
 }
 
 // ── Atualizar status pelo select do card ─────────────────────
 async function atualizarStatus(id, novoStatus) {
-  const livro = livros.find(l => l.id === id);
+  const livro = livros.find(candidato => candidato.id === id);
   if (!livro) return;
 
   try {
-    const atualizado = await api.put(`/api/livros/${id}`, {
+    const livroAtualizado = await api.put(`/api/livros/${id}`, {
       titulo: livro.titulo,
       autor: livro.autor,
       status: novoStatus,
       categoriaId: livro.categoria_id,
     });
-    livros = livros.map(l => (l.id === id ? atualizado : l));
-    renderizarLivros();
-    atualizarContadores();
+    livros = livros.map(atual => (atual.id === id ? livroAtualizado : atual));
+    atualizarInterface();
   } catch (err) {
-    mostrarErro(err.message);
+    avisoDeErro.mostrar(err.message);
   }
 }
 
 // ── Criar card DOM a partir do template ──────────────────────
 function criarCard(livro) {
-  const clone = cardTemplate.content.cloneNode(true);
-  const article = clone.querySelector('article');
+  const cardClonado = cardTemplate.content.cloneNode(true);
+  const cardDoLivro = cardClonado.querySelector('article');
 
-  article.setAttribute('data-status', livro.status);
-  article.querySelector('.card-title').textContent  = livro.titulo;
-  article.querySelector('.card-author').textContent = `por ${livro.autor}`;
-  article.querySelector('.card-categoria').textContent = livro.categoria_nome ? `📂 ${livro.categoria_nome}` : '';
-  article.querySelector('.card-status-badge').textContent = STATUS_LABEL[livro.status];
+  cardDoLivro.setAttribute('data-status', livro.status);
+  cardDoLivro.querySelector('.card-title').textContent  = livro.titulo;
+  cardDoLivro.querySelector('.card-author').textContent = `por ${livro.autor}`;
+  cardDoLivro.querySelector('.card-categoria').textContent = livro.categoria_nome ? `📂 ${livro.categoria_nome}` : '';
+  cardDoLivro.querySelector('.card-status-badge').textContent = STATUS_LABEL[livro.status];
 
   // Select de status
-  const sel = article.querySelector('.card-status-select');
-  Object.entries(STATUS_LABEL).forEach(([val, label]) => {
-    const opt = document.createElement('option');
-    opt.value = val;
-    opt.textContent = label;
-    if (val === livro.status) opt.selected = true;
-    sel.appendChild(opt);
+  const selectDeStatus = cardDoLivro.querySelector('.card-status-select');
+  Object.entries(STATUS_LABEL).forEach(([valorDoStatus, rotulo]) => {
+    const opcao = document.createElement('option');
+    opcao.value = valorDoStatus;
+    opcao.textContent = rotulo;
+    if (valorDoStatus === livro.status) opcao.selected = true;
+    selectDeStatus.appendChild(opcao);
   });
 
-  sel.addEventListener('change', () => atualizarStatus(livro.id, sel.value));
+  selectDeStatus.addEventListener('change', () => atualizarStatus(livro.id, selectDeStatus.value));
 
   // Botão remover
-  article.querySelector('.btn-remove').addEventListener('click', () => removerLivro(livro.id));
+  cardDoLivro.querySelector('.btn-remove').addEventListener('click', () => removerLivro(livro.id));
 
-  return article;
+  return cardDoLivro;
 }
 
 // ── Renderizar lista filtrada ─────────────────────────────────
 function renderizarLivros() {
   booksGrid.innerHTML = '';
 
-  const filtrados = livros.filter(l => {
-    const passaStatus = filtroStatusAtivo === 'todos' || l.status === filtroStatusAtivo;
-    const passaCategoria = filtroCategoriaAtiva === 'todas' || String(l.categoria_id) === filtroCategoriaAtiva;
+  const livrosVisiveis = livros.filter(livro => {
+    const passaStatus = filtroStatusAtivo === 'todos' || livro.status === filtroStatusAtivo;
+    const passaCategoria = filtroCategoriaAtiva === 'todas' || String(livro.categoria_id) === filtroCategoriaAtiva;
     return passaStatus && passaCategoria;
   });
 
-  if (filtrados.length === 0) {
+  if (livrosVisiveis.length === 0) {
     emptyState.classList.remove('hidden');
     booksGrid.classList.add('hidden');
     return;
@@ -212,16 +225,23 @@ function renderizarLivros() {
   emptyState.classList.add('hidden');
   booksGrid.classList.remove('hidden');
 
-  filtrados.forEach(livro => {
+  livrosVisiveis.forEach(livro => {
     booksGrid.appendChild(criarCard(livro));
   });
 }
 
 // ── Atualizar contadores no header ────────────────────────────
 function atualizarContadores() {
-  countLido.textContent  = livros.filter(l => l.status === 'lido').length;
-  countLendo.textContent = livros.filter(l => l.status === 'lendo').length;
-  countQuero.textContent = livros.filter(l => l.status === 'quero-ler').length;
+  countLido.textContent  = livros.filter(livro => livro.status === 'lido').length;
+  countLendo.textContent = livros.filter(livro => livro.status === 'lendo').length;
+  countQuero.textContent = livros.filter(livro => livro.status === 'quero-ler').length;
+}
+
+// Redesenhar a lista e recontar são sempre a mesma operação: refletir o estado
+// atual na tela. Mantê-las juntas evita que uma delas seja esquecida.
+function atualizarInterface() {
+  renderizarLivros();
+  atualizarContadores();
 }
 
 // ── Filtros ──────────────────────────────────────────────────
@@ -251,7 +271,7 @@ btnAdicionar.addEventListener('click', adicionarLivro);
 
 // Esconder erro ao digitar
 [inputTitulo, inputAutor].forEach(input => {
-  input.addEventListener('input', () => esconderErro());
+  input.addEventListener('input', () => avisoDeErro.esconder());
 });
 
 // ── Init ─────────────────────────────────────────────────────
