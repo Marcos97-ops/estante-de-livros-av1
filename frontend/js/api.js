@@ -50,14 +50,6 @@ async function request(path, { method = 'GET', body } = {}) {
     throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.');
   }
 
-  if (resposta.status === 401) {
-    limparSessao();
-    if (!window.location.pathname.endsWith('login.html')) {
-      window.location.href = 'login.html?expirado=1';
-    }
-    throw new Error('Sessão expirada. Faça login novamente.');
-  }
-
   if (resposta.status === 204) return null;
 
   let corpoDaResposta = null;
@@ -70,6 +62,20 @@ async function request(path, { method = 'GET', body } = {}) {
     if (resposta.ok) {
       console.error(`Resposta ${resposta.status} de ${path} sem JSON válido:`, erroDeLeitura);
     }
+  }
+
+  if (resposta.status === 401) {
+    limparSessao();
+
+    // Na tela de login, 401 significa credencial errada — não sessão expirada.
+    // Tratar os dois como a mesma coisa mostrava "Sessão expirada" para quem
+    // apenas digitou a senha errada.
+    if (window.location.pathname.endsWith('login.html')) {
+      throw new Error(corpoDaResposta?.erro || 'E-mail ou senha inválidos.');
+    }
+
+    window.location.href = 'login.html?expirado=1';
+    throw new Error('Sessão expirada. Faça login novamente.');
   }
 
   if (resposta.status === 403) {
