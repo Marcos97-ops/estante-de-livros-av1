@@ -222,6 +222,7 @@ O diagnóstico completo — com trechos de código, arquivo:linha e cálculo de 
 | Sem `CORS_ORIGIN`, o servidor subia normalmente e bloqueava **todas** as requisições do navegador em silêncio | Aviso explícito no boot dizendo o que configurar e onde |
 | Falha ao carregar categorias aparecia só no console — o usuário via os selects vazios sem explicação | O usuário é avisado na tela, deixando claro que ainda dá para cadastrar livros sem categoria |
 | `catch` vazio ao ler o corpo da resposta engolia qualquer falha de parsing | Passa a registrar quando a resposta é de **sucesso** e mesmo assim veio sem JSON válido — isso é bug do servidor, não corpo vazio esperado |
+| Quem digitava a senha errada via **"Sessão expirada. Faça login novamente."**, porque todo 401 era tratado como token vencido | Na tela de login, o 401 passa a exibir a mensagem real do backend (`E-mail ou senha inválidos.`). Bug encontrado durante o teste manual da refatoração |
 
 ### Nomes que explicam a intenção
 

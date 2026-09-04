@@ -22,6 +22,7 @@ Análise realizada sobre o estado do projeto no commit inicial (`main`), antes d
 | 8 | Falha de carregamento invisível para o usuário | Tratamento de erro | `frontend/js/app.js` |
 | 9 | Log de erro sem nenhum contexto | Tratamento de erro | `backend/src/middlewares/errorHandler.js` |
 | 10 | Configuração de CORS falha em silêncio | Tratamento de erro | `backend/src/app.js` |
+| 10b | Todo 401 tratado como sessão expirada | Tratamento de erro | `frontend/js/api.js` |
 | 11 | Nomes vagos em variáveis e callbacks | Nomenclatura | `frontend/js/api.js`, `frontend/js/app.js` |
 | 12 | Números e strings mágicos | Valores mágicos | `backend/`, `frontend/` |
 
@@ -159,6 +160,22 @@ app.use(cors({ origin: origensPermitidas }));
 ```
 
 **Por que é um problema:** se `CORS_ORIGIN` não estiver definida, `origensPermitidas` vira um array vazio e o servidor passa a **rejeitar todas as origens** — sem lançar erro, sem aviso no boot. O servidor sobe "com sucesso", os endpoints respondem via `curl`, e apenas o navegador falha. É o pior tipo de falha de configuração: aparenta funcionar e o sintoma aparece longe da causa.
+
+### 3.5 Todo 401 tratado como sessão expirada — `frontend/js/api.js`, linhas 53-59
+
+```js
+if (resposta.status === 401) {
+  limparSessao();
+  if (!window.location.pathname.endsWith('login.html')) {
+    window.location.href = 'login.html?expirado=1';
+  }
+  throw new Error('Sessão expirada. Faça login novamente.');
+}
+```
+
+**Por que é um problema:** o bloco assume que todo 401 significa token expirado, mas o endpoint de login também responde 401 — para credencial errada. O resultado é que **quem digita a senha errada recebe "Sessão expirada. Faça login novamente."**, mensagem que não descreve o que aconteceu e sugere um problema de sessão que não existe. A mensagem correta (`E-mail ou senha inválidos.`) é devolvida pelo backend, mas descartada antes de chegar à tela.
+
+> Este item não veio da leitura do código: foi descoberto **durante o teste manual** da refatoração, ao verificar se as mensagens de erro continuavam corretas depois da extração do módulo `ui.js`. Fica como registro de que revisão de código e teste manual encontram classes diferentes de problema.
 
 ---
 
