@@ -26,7 +26,12 @@ function registrarErro(err, req, status) {
     registro.stack = err.stack;
   }
 
-  console.error(JSON.stringify(registro));
+  // 4xx sai por stdout e 5xx por stderr: coletores de log costumam alertar em
+  // cima do stderr, e um 404 não deveria acionar alarme junto com um 500.
+  // Note que console.warn NÃO serve aqui: no Node ele escreve em stderr,
+  // igual ao console.error — só o console.log vai para o stdout.
+  const registrar = status >= 500 ? console.error : console.log;
+  registrar(JSON.stringify(registro));
 }
 
 function errorHandler(err, req, res, _next) {
