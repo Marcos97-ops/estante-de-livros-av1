@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entrar — Estante de Livros</title>
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-amber-50 min-h-screen flex items-center justify-center px-4">
+
+  <main class="w-full max-w-md">
+    <div class="text-center mb-6">
+      <span class="text-4xl">📚</span>
+      <h1 class="mt-2" style="font-family:'Playfair Display', serif; font-size:1.6rem; font-weight:700; color:#3b1f0a;">
+        Estante de Livros
+      </h1>
+      <p class="text-sm" style="color:#7a5a3a;">Sua biblioteca pessoal</p>
+    </div>
+
+    <div class="form-card">
+
+      <!-- Abas -->
+      <div class="filter-group" role="tablist" aria-label="Alternar entre login e cadastro">
+        <button id="tab-login" class="filter-btn active" type="button" role="tab" aria-selected="true">Entrar</button>
+        <button id="tab-cadastro" class="filter-btn" type="button" role="tab" aria-selected="false">Criar conta</button>
+      </div>
+
+      <div id="aviso-expirado" class="hidden rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800" role="alert">
+        ⏱️ Sua sessão expirou. Faça login novamente.
+      </div>
+
+      <div id="erro-msg" class="hidden rounded-lg border border-red-300 bg-red-50 px-4 py-2.5 text-sm text-red-700" role="alert"></div>
+
+      <!-- Formulário de login -->
+      <form id="form-login" class="flex flex-col gap-4">
+        <div>
+          <label for="login-email" class="field-label">E-mail</label>
+          <input id="login-email" type="email" class="field-input" placeholder="voce@exemplo.com" required />
+        </div>
+        <div>
+          <label for="login-senha" class="field-label">Senha</label>
+          <input id="login-senha" type="password" class="field-input" placeholder="••••••••" required />
+        </div>
+        <button id="btn-login" type="submit"
+          class="w-full inline-flex items-center justify-center bg-[#c8832a] hover:bg-[#a8681e] active:scale-95 text-white font-semibold text-sm px-6 py-2.5 rounded-lg transition">
+          Entrar
+        </button>
+        <p class="text-xs text-center" style="color:#9a7a5a;">
+          Usuário de teste: <strong>leitor@teste.com</strong> / <strong>leitor123</strong>
+        </p>
+      </form>
+
+      <!-- Formulário de cadastro -->
+      <form id="form-cadastro" class="hidden flex flex-col gap-4">
+        <div>
+          <label for="cadastro-nome" class="field-label">Nome</label>
+          <input id="cadastro-nome" type="text" class="field-input" placeholder="Seu nome" required />
+        </div>
+        <div>
+          <label for="cadastro-email" class="field-label">E-mail</label>
+          <input id="cadastro-email" type="email" class="field-input" placeholder="voce@exemplo.com" required />
+        </div>
+        <div>
+          <label for="cadastro-senha" class="field-label">Senha</label>
+          <input id="cadastro-senha" type="password" class="field-input" placeholder="mín. 6 caracteres" required minlength="6" />
+        </div>
+        <button id="btn-cadastro" type="submit"
+          class="w-full inline-flex items-center justify-center bg-[#c8832a] hover:bg-[#a8681e] active:scale-95 text-white font-semibold text-sm px-6 py-2.5 rounded-lg transition">
+          Criar conta
+        </button>
+      </form>
+
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>
