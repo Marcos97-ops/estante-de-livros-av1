@@ -66,9 +66,6 @@ async function criar(req, res, next) {
 
     return res.status(201).json(livro);
   } catch (err) {
-    if (err.code === '23503') {
-      return res.status(400).json({ erro: 'Categoria informada não existe.' });
-    }
     return next(err);
   }
 }
@@ -92,9 +89,6 @@ async function atualizar(req, res, next) {
 
     return res.status(200).json(livroAtualizado);
   } catch (err) {
-    if (err.code === '23503') {
-      return res.status(400).json({ erro: 'Categoria informada não existe.' });
-    }
     return next(err);
   }
 }
