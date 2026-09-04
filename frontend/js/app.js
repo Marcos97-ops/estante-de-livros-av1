@@ -91,8 +91,7 @@ async function carregarCategorias() {
 async function carregarLivros() {
   try {
     livros = await api.get('/api/livros');
-    renderizarLivros();
-    atualizarContadores();
+    atualizarInterface();
   } catch (err) {
     mostrarErro(err.message);
   }
@@ -141,8 +140,7 @@ async function adicionarLivro() {
   try {
     const livroCriado = await api.post('/api/livros', dadosDoLivro);
     livros.unshift(livroCriado);
-    renderizarLivros();
-    atualizarContadores();
+    atualizarInterface();
     limparFormularioDeLivro();
   } catch (err) {
     mostrarErro(err.message);
@@ -156,8 +154,7 @@ async function removerLivro(id) {
   try {
     await api.delete(`/api/livros/${id}`);
     livros = livros.filter(l => l.id !== id);
-    renderizarLivros();
-    atualizarContadores();
+    atualizarInterface();
   } catch (err) {
     mostrarErro(err.message);
   }
@@ -176,8 +173,7 @@ async function atualizarStatus(id, novoStatus) {
       categoriaId: livro.categoria_id,
     });
     livros = livros.map(l => (l.id === id ? atualizado : l));
-    renderizarLivros();
-    atualizarContadores();
+    atualizarInterface();
   } catch (err) {
     mostrarErro(err.message);
   }
@@ -241,6 +237,13 @@ function atualizarContadores() {
   countLido.textContent  = livros.filter(l => l.status === 'lido').length;
   countLendo.textContent = livros.filter(l => l.status === 'lendo').length;
   countQuero.textContent = livros.filter(l => l.status === 'quero-ler').length;
+}
+
+// Redesenhar a lista e recontar são sempre a mesma operação: refletir o estado
+// atual na tela. Mantê-las juntas evita que uma delas seja esquecida.
+function atualizarInterface() {
+  renderizarLivros();
+  atualizarContadores();
 }
 
 // ── Filtros ──────────────────────────────────────────────────
