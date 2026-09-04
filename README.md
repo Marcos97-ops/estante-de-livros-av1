@@ -218,7 +218,7 @@ O diagnóstico completo — com trechos de código, arquivo:linha e cálculo de 
 
 | Antes | Depois |
 |---|---|
-| `console.error(err)` no `errorHandler`, sem nenhum contexto | Log estruturado em JSON com horário, método, rota, status e mensagem. Stack trace só em erro 5xx, já que 4xx é falha esperada do cliente |
+| `console.error(err)` no `errorHandler`, sem nenhum contexto | Log estruturado em JSON com horário, método, rota, status e mensagem. Stack trace só em erro 5xx, já que 4xx é falha esperada do cliente. Além disso, 4xx sai por **stdout** e 5xx por **stderr**, para um 404 não disparar alerta junto com um 500 nos coletores de log |
 | Sem `CORS_ORIGIN`, o servidor subia normalmente e bloqueava **todas** as requisições do navegador em silêncio | Aviso explícito no boot dizendo o que configurar e onde |
 | Falha ao carregar categorias aparecia só no console — o usuário via os selects vazios sem explicação | O usuário é avisado na tela, deixando claro que ainda dá para cadastrar livros sem categoria |
 | `catch` vazio ao ler o corpo da resposta engolia qualquer falha de parsing | Passa a registrar quando a resposta é de **sucesso** e mesmo assim veio sem JSON válido — isso é bug do servidor, não corpo vazio esperado |
