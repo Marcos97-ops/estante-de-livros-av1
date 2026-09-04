@@ -43,6 +43,8 @@ const STATUS_LABEL = {
   'quero-ler': '📖 Quero ler',
 };
 
+const STATUS_PADRAO = 'quero-ler';
+
 // ── Sessão ───────────────────────────────────────────────────
 function iniciarCabecalhoUsuario() {
   const usuario = api.getUsuario();
@@ -97,16 +99,39 @@ async function carregarLivros() {
 }
 
 // ── Adicionar livro ──────────────────────────────────────────
-async function adicionarLivro() {
-  const titulo = inputTitulo.value.trim();
-  const autor  = inputAutor.value.trim();
-  const status = inputStatus.value;
-  const categoriaId = inputCategoria.value || null;
+function lerFormularioDeLivro() {
+  return {
+    titulo: inputTitulo.value.trim(),
+    autor: inputAutor.value.trim(),
+    status: inputStatus.value,
+    categoriaId: inputCategoria.value || null,
+  };
+}
 
-  // Validação: campos obrigatórios
+// Devolve a mensagem de erro, ou null se estiver tudo certo — mesmo contrato
+// da validação do backend, e sem tocar no DOM.
+function validarFormularioDeLivro({ titulo, autor }) {
   if (!titulo || !autor) {
-    mostrarErro('Preencha o título e o autor antes de adicionar.');
-    (titulo ? inputAutor : inputTitulo).focus();
+    return 'Preencha o título e o autor antes de adicionar.';
+  }
+  return null;
+}
+
+function limparFormularioDeLivro() {
+  inputTitulo.value = '';
+  inputAutor.value  = '';
+  inputStatus.value = STATUS_PADRAO;
+  inputCategoria.value = '';
+  inputTitulo.focus();
+}
+
+async function adicionarLivro() {
+  const dadosDoLivro = lerFormularioDeLivro();
+
+  const mensagemDeErro = validarFormularioDeLivro(dadosDoLivro);
+  if (mensagemDeErro) {
+    mostrarErro(mensagemDeErro);
+    (dadosDoLivro.titulo ? inputAutor : inputTitulo).focus();
     return;
   }
 
@@ -114,17 +139,11 @@ async function adicionarLivro() {
   btnAdicionar.disabled = true;
 
   try {
-    const novoLivro = await api.post('/api/livros', { titulo, autor, status, categoriaId });
-    livros.unshift(novoLivro);
+    const livroCriado = await api.post('/api/livros', dadosDoLivro);
+    livros.unshift(livroCriado);
     renderizarLivros();
     atualizarContadores();
-
-    // Limpar formulário
-    inputTitulo.value = '';
-    inputAutor.value  = '';
-    inputStatus.value = 'quero-ler';
-    inputCategoria.value = '';
-    inputTitulo.focus();
+    limparFormularioDeLivro();
   } catch (err) {
     mostrarErro(err.message);
   } finally {
