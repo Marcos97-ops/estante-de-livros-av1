@@ -76,7 +76,12 @@ async function carregarCategorias() {
       filterCategoria.appendChild(opcaoDoFiltro);
     });
   } catch (err) {
-    console.error('Falha ao carregar categorias:', err.message);
+    // Sem esse aviso, os selects apenas ficariam vazios e o usuário não teria
+    // como saber que faltou algo. Cadastrar sem categoria continua funcionando.
+    console.error('Falha ao carregar categorias:', err);
+    avisoDeErro.mostrar(
+      'Não foi possível carregar as categorias. Você ainda pode cadastrar livros sem categoria.'
+    );
   }
 }
 
