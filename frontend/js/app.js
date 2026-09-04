@@ -64,16 +64,16 @@ async function carregarCategorias() {
   try {
     categorias = await api.get('/api/categorias');
 
-    categorias.forEach(cat => {
-      const optForm = document.createElement('option');
-      optForm.value = cat.id;
-      optForm.textContent = cat.nome;
-      inputCategoria.appendChild(optForm);
+    categorias.forEach(categoria => {
+      const opcaoDoFormulario = document.createElement('option');
+      opcaoDoFormulario.value = categoria.id;
+      opcaoDoFormulario.textContent = categoria.nome;
+      inputCategoria.appendChild(opcaoDoFormulario);
 
-      const optFiltro = document.createElement('option');
-      optFiltro.value = cat.id;
-      optFiltro.textContent = cat.nome;
-      filterCategoria.appendChild(optFiltro);
+      const opcaoDoFiltro = document.createElement('option');
+      opcaoDoFiltro.value = categoria.id;
+      opcaoDoFiltro.textContent = categoria.nome;
+      filterCategoria.appendChild(opcaoDoFiltro);
     });
   } catch (err) {
     console.error('Falha ao carregar categorias:', err.message);
@@ -146,7 +146,7 @@ async function adicionarLivro() {
 async function removerLivro(id) {
   try {
     await api.delete(`/api/livros/${id}`);
-    livros = livros.filter(l => l.id !== id);
+    livros = livros.filter(livro => livro.id !== id);
     atualizarInterface();
   } catch (err) {
     avisoDeErro.mostrar(err.message);
@@ -155,17 +155,17 @@ async function removerLivro(id) {
 
 // ── Atualizar status pelo select do card ─────────────────────
 async function atualizarStatus(id, novoStatus) {
-  const livro = livros.find(l => l.id === id);
+  const livro = livros.find(candidato => candidato.id === id);
   if (!livro) return;
 
   try {
-    const atualizado = await api.put(`/api/livros/${id}`, {
+    const livroAtualizado = await api.put(`/api/livros/${id}`, {
       titulo: livro.titulo,
       autor: livro.autor,
       status: novoStatus,
       categoriaId: livro.categoria_id,
     });
-    livros = livros.map(l => (l.id === id ? atualizado : l));
+    livros = livros.map(atual => (atual.id === id ? livroAtualizado : atual));
     atualizarInterface();
   } catch (err) {
     avisoDeErro.mostrar(err.message);
@@ -174,44 +174,44 @@ async function atualizarStatus(id, novoStatus) {
 
 // ── Criar card DOM a partir do template ──────────────────────
 function criarCard(livro) {
-  const clone = cardTemplate.content.cloneNode(true);
-  const article = clone.querySelector('article');
+  const cardClonado = cardTemplate.content.cloneNode(true);
+  const cardDoLivro = cardClonado.querySelector('article');
 
-  article.setAttribute('data-status', livro.status);
-  article.querySelector('.card-title').textContent  = livro.titulo;
-  article.querySelector('.card-author').textContent = `por ${livro.autor}`;
-  article.querySelector('.card-categoria').textContent = livro.categoria_nome ? `📂 ${livro.categoria_nome}` : '';
-  article.querySelector('.card-status-badge').textContent = STATUS_LABEL[livro.status];
+  cardDoLivro.setAttribute('data-status', livro.status);
+  cardDoLivro.querySelector('.card-title').textContent  = livro.titulo;
+  cardDoLivro.querySelector('.card-author').textContent = `por ${livro.autor}`;
+  cardDoLivro.querySelector('.card-categoria').textContent = livro.categoria_nome ? `📂 ${livro.categoria_nome}` : '';
+  cardDoLivro.querySelector('.card-status-badge').textContent = STATUS_LABEL[livro.status];
 
   // Select de status
-  const sel = article.querySelector('.card-status-select');
-  Object.entries(STATUS_LABEL).forEach(([val, label]) => {
-    const opt = document.createElement('option');
-    opt.value = val;
-    opt.textContent = label;
-    if (val === livro.status) opt.selected = true;
-    sel.appendChild(opt);
+  const selectDeStatus = cardDoLivro.querySelector('.card-status-select');
+  Object.entries(STATUS_LABEL).forEach(([valorDoStatus, rotulo]) => {
+    const opcao = document.createElement('option');
+    opcao.value = valorDoStatus;
+    opcao.textContent = rotulo;
+    if (valorDoStatus === livro.status) opcao.selected = true;
+    selectDeStatus.appendChild(opcao);
   });
 
-  sel.addEventListener('change', () => atualizarStatus(livro.id, sel.value));
+  selectDeStatus.addEventListener('change', () => atualizarStatus(livro.id, selectDeStatus.value));
 
   // Botão remover
-  article.querySelector('.btn-remove').addEventListener('click', () => removerLivro(livro.id));
+  cardDoLivro.querySelector('.btn-remove').addEventListener('click', () => removerLivro(livro.id));
 
-  return article;
+  return cardDoLivro;
 }
 
 // ── Renderizar lista filtrada ─────────────────────────────────
 function renderizarLivros() {
   booksGrid.innerHTML = '';
 
-  const filtrados = livros.filter(l => {
-    const passaStatus = filtroStatusAtivo === 'todos' || l.status === filtroStatusAtivo;
-    const passaCategoria = filtroCategoriaAtiva === 'todas' || String(l.categoria_id) === filtroCategoriaAtiva;
+  const livrosVisiveis = livros.filter(livro => {
+    const passaStatus = filtroStatusAtivo === 'todos' || livro.status === filtroStatusAtivo;
+    const passaCategoria = filtroCategoriaAtiva === 'todas' || String(livro.categoria_id) === filtroCategoriaAtiva;
     return passaStatus && passaCategoria;
   });
 
-  if (filtrados.length === 0) {
+  if (livrosVisiveis.length === 0) {
     emptyState.classList.remove('hidden');
     booksGrid.classList.add('hidden');
     return;
@@ -220,16 +220,16 @@ function renderizarLivros() {
   emptyState.classList.add('hidden');
   booksGrid.classList.remove('hidden');
 
-  filtrados.forEach(livro => {
+  livrosVisiveis.forEach(livro => {
     booksGrid.appendChild(criarCard(livro));
   });
 }
 
 // ── Atualizar contadores no header ────────────────────────────
 function atualizarContadores() {
-  countLido.textContent  = livros.filter(l => l.status === 'lido').length;
-  countLendo.textContent = livros.filter(l => l.status === 'lendo').length;
-  countQuero.textContent = livros.filter(l => l.status === 'quero-ler').length;
+  countLido.textContent  = livros.filter(livro => livro.status === 'lido').length;
+  countLendo.textContent = livros.filter(livro => livro.status === 'lendo').length;
+  countQuero.textContent = livros.filter(livro => livro.status === 'quero-ler').length;
 }
 
 // Redesenhar a lista e recontar são sempre a mesma operação: refletir o estado

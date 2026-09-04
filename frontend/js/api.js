@@ -14,8 +14,8 @@ function getToken() {
 }
 
 function getUsuario() {
-  const raw = localStorage.getItem('usuario');
-  return raw ? JSON.parse(raw) : null;
+  const usuarioSerializado = localStorage.getItem('usuario');
+  return usuarioSerializado ? JSON.parse(usuarioSerializado) : null;
 }
 
 function salvarSessao(token, usuario) {
@@ -60,22 +60,22 @@ async function request(path, { method = 'GET', body } = {}) {
 
   if (resposta.status === 204) return null;
 
-  let dados = null;
+  let corpoDaResposta = null;
   try {
-    dados = await resposta.json();
+    corpoDaResposta = await resposta.json();
   } catch (_) {
     // resposta sem corpo JSON (ex.: erro genérico do servidor)
   }
 
   if (resposta.status === 403) {
-    throw new Error(dados?.erro || 'Você não tem permissão para realizar esta ação.');
+    throw new Error(corpoDaResposta?.erro || 'Você não tem permissão para realizar esta ação.');
   }
 
   if (!resposta.ok) {
-    throw new Error(dados?.erro || 'Ocorreu um erro inesperado.');
+    throw new Error(corpoDaResposta?.erro || 'Ocorreu um erro inesperado.');
   }
 
-  return dados;
+  return corpoDaResposta;
 }
 
 const api = {

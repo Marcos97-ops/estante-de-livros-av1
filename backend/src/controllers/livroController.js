@@ -6,7 +6,7 @@ const livroModel = require('../models/livroModel');
 
 const STATUS_VALIDOS = ['quero-ler', 'lendo', 'lido'];
 
-function validarCampos({ titulo, autor, status }) {
+function validarDadosDoLivro({ titulo, autor, status }) {
   if (!titulo || !titulo.trim() || !autor || !autor.trim()) {
     return 'Título e autor são obrigatórios.';
   }
@@ -53,8 +53,8 @@ async function criar(req, res, next) {
   try {
     const { titulo, autor, status, categoriaId } = req.body;
 
-    const erro = validarCampos({ titulo, autor, status });
-    if (erro) return res.status(400).json({ erro });
+    const mensagemDeErro = validarDadosDoLivro({ titulo, autor, status });
+    if (mensagemDeErro) return res.status(400).json({ erro: mensagemDeErro });
 
     const livro = await livroModel.criar({
       titulo: titulo.trim(),
@@ -75,8 +75,8 @@ async function atualizar(req, res, next) {
     const { id } = req.params;
     const { titulo, autor, status, categoriaId } = req.body;
 
-    const erro = validarCampos({ titulo, autor, status });
-    if (erro) return res.status(400).json({ erro });
+    const mensagemDeErro = validarDadosDoLivro({ titulo, autor, status });
+    if (mensagemDeErro) return res.status(400).json({ erro: mensagemDeErro });
 
     const livroAtual = await buscarLivroDoUsuario(id, req.usuario.id, 'alterar');
 
