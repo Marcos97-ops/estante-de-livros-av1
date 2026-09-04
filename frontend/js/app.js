@@ -57,14 +57,7 @@ btnSair.addEventListener('click', () => {
 });
 
 // ── Mensagens de erro ────────────────────────────────────────
-function mostrarErro(mensagem) {
-  errorMsg.textContent = `⚠️ ${mensagem}`;
-  errorMsg.classList.remove('hidden');
-}
-
-function esconderErro() {
-  errorMsg.classList.add('hidden');
-}
+const avisoDeErro = criarAvisoDeErro(errorMsg);
 
 // ── Carregar categorias (form + filtro) ───────────────────────
 async function carregarCategorias() {
@@ -93,7 +86,7 @@ async function carregarLivros() {
     livros = await api.get('/api/livros');
     atualizarInterface();
   } catch (err) {
-    mostrarErro(err.message);
+    avisoDeErro.mostrar(err.message);
   }
 }
 
@@ -129,12 +122,12 @@ async function adicionarLivro() {
 
   const mensagemDeErro = validarFormularioDeLivro(dadosDoLivro);
   if (mensagemDeErro) {
-    mostrarErro(mensagemDeErro);
+    avisoDeErro.mostrar(mensagemDeErro);
     (dadosDoLivro.titulo ? inputAutor : inputTitulo).focus();
     return;
   }
 
-  esconderErro();
+  avisoDeErro.esconder();
   btnAdicionar.disabled = true;
 
   try {
@@ -143,7 +136,7 @@ async function adicionarLivro() {
     atualizarInterface();
     limparFormularioDeLivro();
   } catch (err) {
-    mostrarErro(err.message);
+    avisoDeErro.mostrar(err.message);
   } finally {
     btnAdicionar.disabled = false;
   }
@@ -156,7 +149,7 @@ async function removerLivro(id) {
     livros = livros.filter(l => l.id !== id);
     atualizarInterface();
   } catch (err) {
-    mostrarErro(err.message);
+    avisoDeErro.mostrar(err.message);
   }
 }
 
@@ -175,7 +168,7 @@ async function atualizarStatus(id, novoStatus) {
     livros = livros.map(l => (l.id === id ? atualizado : l));
     atualizarInterface();
   } catch (err) {
-    mostrarErro(err.message);
+    avisoDeErro.mostrar(err.message);
   }
 }
 
@@ -273,7 +266,7 @@ btnAdicionar.addEventListener('click', adicionarLivro);
 
 // Esconder erro ao digitar
 [inputTitulo, inputAutor].forEach(input => {
-  input.addEventListener('input', () => esconderErro());
+  input.addEventListener('input', () => avisoDeErro.esconder());
 });
 
 // ── Init ─────────────────────────────────────────────────────
