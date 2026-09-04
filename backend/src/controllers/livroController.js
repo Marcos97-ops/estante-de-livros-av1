@@ -26,15 +26,18 @@ function erroDeRequisicao(status, mensagem) {
  * Busca o livro garantindo que ele pertence ao usuário logado.
  * Lança 404 se não existe e 403 se é de outro usuário — a regra de posse
  * fica em um lugar só, para não divergir entre os endpoints que a usam.
+ *
+ * Não recebe o verbo da ação de propósito: uma função de acesso a dados não
+ * deveria decidir a redação da mensagem exibida ao usuário.
  */
-async function buscarLivroDoUsuario(id, usuarioId, acao) {
+async function buscarLivroDoUsuario(id, usuarioId) {
   const livro = await livroModel.buscarPorId(id);
 
   if (!livro) {
     throw erroDeRequisicao(404, 'Livro não encontrado.');
   }
   if (livro.usuario_id !== usuarioId) {
-    throw erroDeRequisicao(403, `Você não tem permissão para ${acao} este livro.`);
+    throw erroDeRequisicao(403, 'Você não tem permissão para acessar este livro.');
   }
 
   return livro;
@@ -78,7 +81,7 @@ async function atualizar(req, res, next) {
     const mensagemDeErro = validarDadosDoLivro({ titulo, autor, status });
     if (mensagemDeErro) return res.status(400).json({ erro: mensagemDeErro });
 
-    const livroAtual = await buscarLivroDoUsuario(id, req.usuario.id, 'alterar');
+    const livroAtual = await buscarLivroDoUsuario(id, req.usuario.id);
 
     const livroAtualizado = await livroModel.atualizar(id, {
       titulo: titulo.trim(),
@@ -97,7 +100,7 @@ async function remover(req, res, next) {
   try {
     const { id } = req.params;
 
-    await buscarLivroDoUsuario(id, req.usuario.id, 'remover');
+    await buscarLivroDoUsuario(id, req.usuario.id);
 
     await livroModel.remover(id);
     return res.status(204).send();
