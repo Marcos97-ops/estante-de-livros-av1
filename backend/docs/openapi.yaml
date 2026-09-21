@@ -1,0 +1,316 @@
+openapi: 3.0.3
+info:
+  title: Estante de Livros — API
+  version: 1.0.0
+  description: >
+    API REST para gerenciar uma biblioteca pessoal. Cada usuário só acessa
+    os livros que cadastrou. Autenticação via JWT (header `Authorization: Bearer <token>`).
+servers:
+  - url: /api
+
+tags:
+  - name: Autenticação
+  - name: Livros
+  - name: Categorias
+
+paths:
+  /auth/register:
+    post:
+      tags: [Autenticação]
+      summary: Cadastra um novo usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome, email, senha]
+              properties:
+                nome:
+                  type: string
+                  example: Ana Leitora
+                email:
+                  type: string
+                  format: email
+                  example: ana@teste.com
+                senha:
+                  type: string
+                  minLength: 6
+                  example: senha123
+      responses:
+        '201':
+          description: Usuário criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespostaAutenticacao'
+        '400':
+          description: Dados inválidos (campo faltando, e-mail mal formado ou senha curta)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '409':
+          description: Já existe uma conta com este e-mail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Autentica um usuário existente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, senha]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: leitor@teste.com
+                senha:
+                  type: string
+                  example: leitor123
+      responses:
+        '200':
+          description: Login efetuado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespostaAutenticacao'
+        '400':
+          description: E-mail ou senha ausentes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: E-mail ou senha inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /categorias:
+    get:
+      tags: [Categorias]
+      summary: Lista todas as categorias disponíveis
+      responses:
+        '200':
+          description: Lista de categorias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Categoria'
+
+  /livros:
+    get:
+      tags: [Livros]
+      summary: Lista os livros do usuário autenticado
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Lista de livros do usuário
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Livro'
+        '401':
+          description: Token ausente, inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+    post:
+      tags: [Livros]
+      summary: Cadastra um novo livro para o usuário autenticado
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NovoLivro'
+      responses:
+        '201':
+          description: Livro criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Livro'
+        '400':
+          description: Título/autor ausentes, status inválido ou categoria inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '401':
+          description: Token ausente, inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /livros/{id}:
+    put:
+      tags: [Livros]
+      summary: Atualiza um livro do usuário autenticado
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LivroId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NovoLivro'
+      responses:
+        '200':
+          description: Livro atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Livro'
+        '400':
+          description: Dados inválidos ou categoria inexistente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: O livro pertence a outro usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Livro não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+    delete:
+      tags: [Livros]
+      summary: Remove um livro do usuário autenticado
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LivroId'
+      responses:
+        '204':
+          description: Livro removido com sucesso (sem corpo)
+        '403':
+          description: O livro pertence a outro usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Livro não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    LivroId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+      example: 1
+
+  schemas:
+    Erro:
+      type: object
+      properties:
+        erro:
+          type: string
+          example: Mensagem descrevendo o problema.
+
+    Categoria:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nome:
+          type: string
+          example: Ficção
+
+    NovoLivro:
+      type: object
+      required: [titulo, autor]
+      properties:
+        titulo:
+          type: string
+          example: Dom Casmurro
+        autor:
+          type: string
+          example: Machado de Assis
+        status:
+          type: string
+          enum: [quero-ler, lendo, lido]
+          default: quero-ler
+        categoriaId:
+          type: integer
+          nullable: true
+          example: 1
+
+    Livro:
+      allOf:
+        - $ref: '#/components/schemas/NovoLivro'
+        - type: object
+          properties:
+            id:
+              type: integer
+              example: 10
+            usuario_id:
+              type: integer
+              example: 1
+            categoria_id:
+              type: integer
+              nullable: true
+              example: 1
+            categoria_nome:
+              type: string
+              nullable: true
+              example: Ficção
+            criado_em:
+              type: string
+              format: date-time
+
+    RespostaAutenticacao:
+      type: object
+      properties:
+        token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        usuario:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+            nome:
+              type: string
+              example: Ana Leitora
+            email:
+              type: string
+              example: ana@teste.com

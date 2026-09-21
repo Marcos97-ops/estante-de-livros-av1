@@ -289,3 +289,55 @@ Ordem adotada na branch `refactor/limpeza-codigo`, da maior para a menor relaç�
 | Média | 3.1 e 3.2 Erros engolidos | Perda de rastreabilidade e de feedback ao usuário |
 | Baixa | 5.1 Nomes vagos | Custo baixo, ganho imediato de legibilidade |
 | Baixa | 5.2 Valores mágicos | Encapsular os mais críticos (bcrypt, senha mínima) |
+
+---
+
+## 8. AV2 — novos code smells corrigidos (extra)
+
+Levantamento feito sobre o `backend/` antes de escrever os testes, para não testar código que ainda seria alterado. Os itens 8.1 e 8.2 já haviam sido *identificados* na seção 5.2 (valores mágicos) mas não tinham sido corrigidos na AV1; os itens 8.3 a 8.5 são smells novos, não listados nas seções 1–5.
+
+### 8.1 `10` (custo do bcrypt) sem nome — `authController.js`
+
+Já apontado na seção 5.2. **Corrigido:** extraído para a constante `CUSTO_DO_HASH`, junto ao uso, em [`authController.js`](backend/src/controllers/authController.js).
+
+### 8.2 `6` (tamanho mínimo de senha) sem nome — `authController.js`
+
+Também já apontado na seção 5.2. **Corrigido:** movido para `TAMANHO_MINIMO_DA_SENHA` em [`authValidator.js`](backend/src/validators/authValidator.js), junto com a regra de validação que o usa — antes a mensagem de erro (`"...ao menos 6 caracteres"`) e a constante podiam divergir por estarem em lugares diferentes.
+
+### 8.3 `try/catch` + `next(err)` repetido em 7 handlers — Categoria: Duplicação/boilerplate
+
+Todo handler de rota (`registrar`, `login`, `listar`, `criar`, `atualizar`, `remover` em `livroController`, `listar` em `categoriaController`) envolvia o corpo inteiro num `try { ... } catch (err) { return next(err); }` idêntico — o próprio comentário do `errorHandler.js` já dizia "Express 5 encaminha automaticamente", mas o código não confiava nisso.
+
+**Por que é um problema:** é ruído puro. Onze linhas de boilerplate repetido não mudam nenhum comportamento (o Express 5 já encaminha rejeições de função async para o middleware de erro) e aumentam o custo de leitura de todo handler.
+
+**Corrigido:** removido de todos os controllers. Comentário no topo de cada arquivo explica por que não é necessário.
+
+### 8.4 Código morto — `categoriaModel.buscarPorId` e `usuarioModel.buscarPorId`
+
+Nenhum dos dois é chamado em lugar nenhum do projeto (confirmado com busca textual em todo o `backend/`).
+
+**Por que é um problema:** função não utilizada é manutenção sem retorno — alguém pode "corrigir" um bug nela achando que está em uso, ou testá-la sem propósito.
+
+**Corrigido:** removidas de [`categoriaModel.js`](backend/src/models/categoriaModel.js) e [`usuarioModel.js`](backend/src/models/usuarioModel.js).
+
+### 8.5 Normalização de e-mail duplicada — `authController.js`
+
+`email.toLowerCase().trim()` aparecia três vezes: uma em `registrar()` (para buscar duplicata), outra em `registrar()` (para gravar) e outra em `login()`.
+
+**Por que é um problema:** é a mesma regra de negócio ("como comparamos e-mails") escrita três vezes. Uma mudança futura (por exemplo, normalizar Unicode) precisaria ser replicada nos três pontos.
+
+**Corrigido:** extraída para `normalizarEmail()` em [`authValidator.js`](backend/src/validators/authValidator.js).
+
+## 9. Princípios SOLID aplicados (extra)
+
+### 9.1 SRP (Single Responsibility Principle) — extração dos validators
+
+Antes, `authController.js` e `livroController.js` misturavam três responsabilidades na mesma função: **validar** o formato dos dados de entrada, **orquestrar** a chamada ao model e **traduzir** o resultado em resposta HTTP. Um controller que muda porque a regra "senha precisa ter 6 caracteres" mudou é o mesmo controller que muda porque o formato da resposta HTTP mudou — dois motivos de mudança colidindo na mesma classe/função, o que o SRP diz para evitar.
+
+**Aplicado:** as regras de validação saíram para [`src/validators/livroValidator.js`](backend/src/validators/livroValidator.js) e [`src/validators/authValidator.js`](backend/src/validators/authValidator.js) — funções puras, sem `req`/`res`, que devolvem a mensagem de erro ou `null`. Os controllers ficaram só com a orquestração HTTP (ler `req`, decidir o status, chamar o model). Isso também tornou a validação testável sem subir um servidor: é só chamar a função com um objeto.
+
+### 9.2 DIP (Dependency Inversion Principle) — controllers recebem o model por parâmetro
+
+Antes, `authController.js` e `livroController.js` faziam `require('../models/usuarioModel')` direto no topo do arquivo — o módulo de mais alto nível (orquestração HTTP) dependia diretamente do módulo de mais baixo nível (acesso a Postgres), sem nenhuma abstração entre os dois. Testar o controller isoladamente exigia banco de verdade ou `jest.mock` reescrevendo o `require`.
+
+**Aplicado:** `criarLivroController({ livroModel })` e `criarAuthController({ usuarioModel })` agora recebem o model como dependência, com o model real como valor padrão (`module.exports = { criarLivroController, ...criarLivroController() }`) para não quebrar as rotas existentes. O controller passa a depender da *abstração* "um objeto com `buscarPorId`/`criar`/`atualizar`/`remover`", não da implementação concreta em Postgres — quem decide qual model usar é quem cria o controller, não o controller. Na prática isso aparece em [`tests/unit/livroController.test.js`](backend/tests/unit/livroController.test.js): os testes unitários injetam um model fake (`jest.fn()`), sem tocar no banco e sem `jest.mock`.

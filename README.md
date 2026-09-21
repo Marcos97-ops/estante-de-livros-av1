@@ -1,10 +1,12 @@
 # 📚 Estante de Livros
 
+[![CI](https://github.com/Marcos97-ops/estante-de-livros-av1/actions/workflows/ci.yml/badge.svg)](https://github.com/Marcos97-ops/estante-de-livros-av1/actions/workflows/ci.yml)
+
 Aplicação full-stack para gerenciar sua biblioteca pessoal. Projeto Final do curso — evolução do projeto de frontend da AV1 (Módulo 2) para uma aplicação completa com backend, banco de dados relacional, autenticação e deploy.
 
 Cada usuário cria sua própria conta e vê apenas os livros que cadastrou. É possível organizar os livros por status — **Quero ler**, **Lendo** ou **Lido** —, categorizá-los e filtrar por status ou categoria.
 
-> 📋 Este repositório é a cópia do projeto dedicada à **revisão formal de qualidade de código**. O levantamento completo de code smells e métricas está em [`DIAGNOSTICO.md`](DIAGNOSTICO.md), e o que mudou a partir dele está resumido em [O que foi melhorado na refatoração](#-o-que-foi-melhorado-na-refatoração).
+> 📋 Este repositório é a cópia do projeto dedicada à **revisão formal de qualidade de código**. O levantamento completo de code smells e métricas está em [`DIAGNOSTICO.md`](DIAGNOSTICO.md); o que mudou na refatoração da AV1 está resumido em [O que foi melhorado na refatoração](#-o-que-foi-melhorado-na-refatoração) e os testes/CI/SOLID da AV2 em [Qualidade e CI](#-qualidade-e-ci).
 
 ## 🔗 URLs de produção
 
@@ -26,23 +28,32 @@ Para logar sem precisar cadastrar uma conta nova:
 
 **Backend:** Node.js, Express, PostgreSQL (driver `pg`, SQL puro), JWT (`jsonwebtoken`), `bcryptjs`, CORS.
 **Frontend:** HTML5 semântico, Tailwind CSS (via CDN), CSS3 (Flexbox e Media Queries), JavaScript puro (`fetch`, manipulação de DOM).
+**Qualidade:** Jest + Supertest (testes unitários e de integração), ESLint + Prettier (lint e formatação), GitHub Actions (CI), Swagger UI / OpenAPI 3.0 (documentação interativa da API).
 
 ## 📁 Estrutura do repositório
 
 ```
 estante-de-livros/
-├── backend/                 # API REST — Node/Express + PostgreSQL
+├── .github/workflows/ci.yml  # pipeline de CI (lint + testes a cada push/PR)
+├── backend/                  # API REST — Node/Express + PostgreSQL
 │   ├── db/
-│   │   ├── schema.sql       # DDL das tabelas e chaves estrangeiras
-│   │   └── seed.sql         # categorias iniciais + usuário de teste
+│   │   ├── schema.sql        # DDL das tabelas e chaves estrangeiras
+│   │   └── seed.sql          # categorias iniciais + usuário de teste
+│   ├── docs/openapi.yaml     # especificação OpenAPI 3.0, servida em /api/docs
+│   ├── tests/
+│   │   ├── unit/             # validators, controllers (model fake), middlewares
+│   │   ├── integration/      # rotas completas via supertest + Postgres real
+│   │   └── helpers/db.js     # reseta o banco de teste (schema + seed)
+│   ├── eslint.config.js / .prettierrc / jest.config.js
 │   └── src/
-│       ├── server.js        # ponto de entrada (sobe a porta)
-│       ├── app.js           # configuração do Express (rotas, CORS, erros)
-│       ├── config/db.js     # pool de conexão com o Postgres
-│       ├── models/          # queries SQL (sem req/res)
-│       ├── controllers/     # regra de negócio (sem SQL)
-│       ├── routes/          # definição dos endpoints
-│       └── middlewares/     # autenticação JWT e tratamento de erros
+│       ├── server.js         # ponto de entrada (sobe a porta)
+│       ├── app.js            # configuração do Express (rotas, CORS, erros, docs)
+│       ├── config/db.js      # pool de conexão com o Postgres
+│       ├── models/           # queries SQL (sem req/res)
+│       ├── controllers/      # regra de negócio (recebem o model por parâmetro)
+│       ├── validators/       # validação pura dos dados de entrada (sem req/res)
+│       ├── routes/           # definição dos endpoints
+│       └── middlewares/      # autenticação JWT e tratamento de erros
 └── frontend/                 # SPA estática — vanilla JS
     ├── index.html            # estante (exige login)
     ├── login.html            # login + cadastro
@@ -120,6 +131,8 @@ Content-Type: application/json
 
 **Erros seguem o formato** `{ "erro": "mensagem" }`, com o status HTTP correspondente (`400` validação, `401` não autenticado, `403` sem permissão, `404` não encontrado, `409` e-mail duplicado).
 
+📖 **Documentação interativa:** com o servidor rodando, acesse `http://localhost:3000/api/docs` (Swagger UI) para ver todos os endpoints com exemplos de sucesso e erro, especificação completa em [`backend/docs/openapi.yaml`](backend/docs/openapi.yaml).
+
 ## 🚀 Como rodar o projeto do zero
 
 ### Pré-requisitos
@@ -163,6 +176,26 @@ python -m http.server 5500
 ```
 Acesse `http://localhost:5500/index.html`. Localmente, `js/api.js` já aponta para `http://localhost:3000` automaticamente.
 
+## 🧪 Como rodar os testes
+
+Os testes de integração usam um Postgres real (mesma estratégia do ambiente de produção) — suba um descartável com Docker:
+
+```bash
+docker run -d --name estante-pg-test -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=estante_test -p 5432:5432 postgres:16-alpine
+```
+
+Depois, em `backend/`:
+
+```bash
+npm install
+npm test              # unitários + integração
+npm run test:unit         # só os unitários (não precisam de banco)
+npm run test:integration  # só os de integração
+npm run test:coverage     # com relatório de cobertura (mínimo configurado: 60% das linhas)
+```
+
+Por padrão os testes usam `postgresql://postgres:postgres@localhost:5432/estante_test` (definido em [`tests/setupEnv.js`](backend/tests/setupEnv.js)); para outra porta ou credenciais, exporte `DATABASE_URL` antes de rodar. O helper [`tests/helpers/db.js`](backend/tests/helpers/db.js) reaplica `schema.sql` + `seed.sql` antes de cada suíte de integração, então o banco de teste pode ser recriado a qualquer momento sem medo.
+
 ## ⚙️ Variáveis de ambiente (backend)
 
 | Variável | Descrição |
@@ -193,6 +226,30 @@ Depois do primeiro deploy, atualize `API_URL` em `frontend/js/api.js` com a URL 
 - Contador de livros por status, atualizado em tempo real
 - Tratamento de sessão expirada/inválida (401) e de permissão negada (403)
 - Layout responsivo (mobile e desktop)
+
+## ✅ Qualidade e CI
+
+O pipeline em [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda a cada `push` e a cada Pull Request, em dois jobs independentes:
+
+| Job | O que faz |
+|---|---|
+| **lint** | `npm run lint` (ESLint) e `npm run format:check` (Prettier) |
+| **test** | Sobe um serviço Postgres 16, roda `npm run test:coverage` (Jest + Supertest) e publica o relatório de cobertura como artifact |
+
+Cobertura atual: **45 testes**, cobrindo o caminho feliz e casos extremos/erro de cada camada:
+
+- **Unitários** (`tests/unit/`): validadores (`livroValidator`, `authValidator`), controllers com model fake injetado (`livroController`), middleware de autenticação (token ausente/inválido/expirado) e o `errorHandler` (FK violation, erro com status, 500 sem vazar mensagem, roteamento 4xx→stdout / 5xx→stderr).
+- **Integração** (`tests/integration/`): fluxo HTTP completo contra Postgres real — cadastro/login, CRUD de livro ponta a ponta (criar → listar → atualizar → categoria inexistente → acesso negado a livro de outro usuário → remover → remover de novo), `/api/health`, `/api/categorias`, `/api/docs` e rota inexistente.
+
+Linhas alteradas cobertas: acima de 90% (limite mínimo configurado em [`jest.config.js`](backend/jest.config.js): 60%).
+
+### Refatoração adicional guiada por SOLID (extra)
+
+Antes de escrever os testes, o `backend/` recebeu uma segunda passagem de refatoração, documentada em detalhe em [`DIAGNOSTICO.md` — seções 8 e 9](DIAGNOSTICO.md#8-av2--novos-code-smells-corrigidos-extra):
+
+- **Novos code smells corrigidos:** `try/catch` + `next(err)` redundante repetido em 7 handlers (Express 5 já encaminha erros async automaticamente), duas funções de model mortas (nunca chamadas), normalização de e-mail duplicada 3× e dois números mágicos sem nome (custo do bcrypt, tamanho mínimo de senha).
+- **SRP:** a validação de dados saiu dos controllers para `src/validators/` — funções puras, sem `req`/`res`, reutilizáveis e testáveis isoladamente.
+- **DIP:** `livroController` e `authController` passaram a receber o model por parâmetro (`criarLivroController({ livroModel })`) em vez de importar o módulo concreto do Postgres direto — o controller depende de uma abstração, não da implementação, o que permite testá-lo com um model fake sem `jest.mock` e sem banco.
 
 ## 🧹 O que foi melhorado na refatoração
 

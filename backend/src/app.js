@@ -1,5 +1,9 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
+const YAML = require('yaml');
+const swaggerUi = require('swagger-ui-express');
 
 const authRoutes = require('./routes/authRoutes');
 const categoriaRoutes = require('./routes/categoriaRoutes');
@@ -18,7 +22,7 @@ const origensPermitidas = (process.env.CORS_ORIGIN || '')
 if (origensPermitidas.length === 0) {
   console.warn(
     '[cors] CORS_ORIGIN não definida: nenhuma origem será aceita pelo navegador. ' +
-    'Defina CORS_ORIGIN no .env com a URL do frontend (ex.: http://localhost:5500).'
+      'Defina CORS_ORIGIN no .env com a URL do frontend (ex.: http://localhost:5500).'
   );
 }
 
@@ -28,6 +32,12 @@ app.use(express.json());
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+// Documentação interativa da API (OpenAPI 3.0), servida a partir do YAML em docs/.
+const openapiDocument = YAML.parse(
+  fs.readFileSync(path.join(__dirname, '../docs/openapi.yaml'), 'utf8')
+);
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapiDocument));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/categorias', categoriaRoutes);

@@ -12,14 +12,6 @@ async function buscarPorEmail(email) {
   return rows[0] || null;
 }
 
-async function buscarPorId(id) {
-  const { rows } = await pool.query(
-    'SELECT id, nome, email, criado_em FROM usuarios WHERE id = $1',
-    [id]
-  );
-  return rows[0] || null;
-}
-
 async function criar({ nome, email, senhaHash }) {
   const { rows } = await pool.query(
     `INSERT INTO usuarios (nome, email, senha_hash)
@@ -30,4 +22,4 @@ async function criar({ nome, email, senhaHash }) {
   return rows[0];
 }
 
-module.exports = { buscarPorEmail, buscarPorId, criar };
+module.exports = { buscarPorEmail, criar };
