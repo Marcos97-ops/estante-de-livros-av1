@@ -1,63 +1,60 @@
 /**
  * authController — cadastro e login. Nenhuma query SQL aqui,
  * toda persistência passa pelo usuarioModel.
+ *
+ * Recebe o model por parâmetro (injeção de dependência) em vez de importar
+ * o módulo concreto: o controller depende da abstração "um model de usuário
+ * com buscarPorEmail/criar", não da implementação em Postgres. Isso permite
+ * testar a orquestração HTTP com um model fake, sem tocar no banco.
+ *
+ * Express 5 encaminha automaticamente qualquer rejeição de uma função async
+ * de rota para o errorHandler — por isso os handlers não precisam de
+ * try/catch + next(err) em cada um.
  */
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const usuarioModel = require('../models/usuarioModel');
+const usuarioModelPadrao = require('../models/usuarioModel');
+const { normalizarEmail, validarCadastro, validarLogin } = require('../validators/authValidator');
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CUSTO_DO_HASH = 10;
 
 function gerarToken(usuario) {
-  return jwt.sign(
-    { id: usuario.id, nome: usuario.nome },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '2h' }
-  );
+  return jwt.sign({ id: usuario.id, nome: usuario.nome }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || '2h',
+  });
 }
 
-async function registrar(req, res, next) {
-  try {
+function criarAuthController({ usuarioModel } = { usuarioModel: usuarioModelPadrao }) {
+  async function registrar(req, res) {
     const { nome, email, senha } = req.body;
 
-    if (!nome || !email || !senha) {
-      return res.status(400).json({ erro: 'Nome, e-mail e senha são obrigatórios.' });
-    }
-    if (!EMAIL_REGEX.test(email)) {
-      return res.status(400).json({ erro: 'E-mail inválido.' });
-    }
-    if (senha.length < 6) {
-      return res.status(400).json({ erro: 'A senha precisa ter ao menos 6 caracteres.' });
-    }
+    const mensagemDeErro = validarCadastro({ nome, email, senha });
+    if (mensagemDeErro) return res.status(400).json({ erro: mensagemDeErro });
 
-    const existente = await usuarioModel.buscarPorEmail(email.toLowerCase().trim());
+    const emailNormalizado = normalizarEmail(email);
+    const existente = await usuarioModel.buscarPorEmail(emailNormalizado);
     if (existente) {
       return res.status(409).json({ erro: 'Já existe uma conta com este e-mail.' });
     }
 
-    const senhaHash = await bcrypt.hash(senha, 10);
+    const senhaHash = await bcrypt.hash(senha, CUSTO_DO_HASH);
     const usuario = await usuarioModel.criar({
       nome: nome.trim(),
-      email: email.toLowerCase().trim(),
+      email: emailNormalizado,
       senhaHash,
     });
 
     const token = gerarToken(usuario);
     return res.status(201).json({ token, usuario });
-  } catch (err) {
-    return next(err);
   }
-}
 
-async function login(req, res, next) {
-  try {
+  async function login(req, res) {
     const { email, senha } = req.body;
 
-    if (!email || !senha) {
-      return res.status(400).json({ erro: 'E-mail e senha são obrigatórios.' });
-    }
+    const mensagemDeErro = validarLogin({ email, senha });
+    if (mensagemDeErro) return res.status(400).json({ erro: mensagemDeErro });
 
-    const usuario = await usuarioModel.buscarPorEmail(email.toLowerCase().trim());
+    const usuario = await usuarioModel.buscarPorEmail(normalizarEmail(email));
     if (!usuario) {
       return res.status(401).json({ erro: 'E-mail ou senha inválidos.' });
     }
@@ -72,9 +69,9 @@ async function login(req, res, next) {
       token,
       usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email },
     });
-  } catch (err) {
-    return next(err);
   }
+
+  return { registrar, login };
 }
 
-module.exports = { registrar, login };
+module.exports = { criarAuthController, ...criarAuthController() };
